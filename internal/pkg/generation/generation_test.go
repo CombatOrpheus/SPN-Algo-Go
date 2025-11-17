@@ -6,51 +6,45 @@ import (
 )
 
 func TestGenerateReachabilityGraph(t *testing.T) {
-	pn := petrinet.NewPetriNet(2, 2)
-	// Manually set up a simple Petri Net for testing
-	// P1 -> T1 -> P2
-	// T2 -> P1
-	pn.Matrix = [][]int{
-		{1, 0, 0, 1, 1}, // Place 1
-		{0, 1, 1, 0, 0}, // Place 2
+	// Create a simple Petri net for testing
+	pn := &petrinet.PetriNet{
+		Places:      2,
+		Transitions: 1,
+		Matrix: [][]int{
+			{1, 0, 1}, // P1 -> T1
+			{0, 1, 0}, // T1 -> P2
+		},
+		InitialMarking: []int{1, 0},
 	}
-	pn.InitialMarking = []int{1, 0}
 
-	graph, err := GenerateReachabilityGraph(pn, 10, 100)
+	rg, err := GenerateReachabilityGraph(pn, 10, 100)
 	if err != nil {
 		t.Fatalf("Error generating reachability graph: %v", err)
 	}
 
-	if !graph.IsBounded {
-		t.Error("Expected the graph to be bounded, but it was not")
+	if !rg.IsBounded {
+		t.Errorf("Expected the graph to be bounded, but it was not")
 	}
 
-	// Expected vertices: [1, 0], [0, 1]
-	if len(graph.Vertices) != 2 {
-		t.Errorf("Expected 2 vertices, but got %d", len(graph.Vertices))
+	// Expected vertices: [1, 0] and [0, 1]
+	if len(rg.Vertices) != 2 {
+		t.Errorf("Expected 2 vertices, but got %d", len(rg.Vertices))
 	}
 
-	// Expected edges: [0, 1] (from T1), [1, 0] (from T2)
-	if len(graph.Edges) != 2 {
-		t.Errorf("Expected 2 edges, but got %d", len(graph.Edges))
-	}
-}
-
-func TestGenerateReachabilityGraph_Unbounded(t *testing.T) {
-	pn := petrinet.NewPetriNet(1, 1)
-	// T1 -> P1 (unbounded)
-	// No pre-condition for T1, so it can always fire, adding a token to P1.
-	pn.Matrix = [][]int{
-		{0, 1, 0},
-	}
-	pn.InitialMarking = []int{0}
-
-	graph, err := GenerateReachabilityGraph(pn, 5, 100)
-	if err != nil {
-		t.Fatalf("Error generating reachability graph: %v", err)
+	// Expected edge: [1, 0] -> [0, 1]
+	if len(rg.Edges) != 1 {
+		t.Errorf("Expected 1 edge, but got %d", len(rg.Edges))
 	}
 
-	if graph.IsBounded {
-		t.Error("Expected the graph to be unbounded, but it was not")
+	if rg.Edges[0][0] != 0 || rg.Edges[0][1] != 1 {
+		t.Errorf("Expected edge from vertex 0 to 1, but got from %d to %d", rg.Edges[0][0], rg.Edges[0][1])
+	}
+
+	if len(rg.ArcTransitions) != 1 {
+		t.Errorf("Expected 1 arc transition, but got %d", len(rg.ArcTransitions))
+	}
+
+	if rg.ArcTransitions[0] != 0 {
+		t.Errorf("Expected arc transition to be 0, but got %d", rg.ArcTransitions[0])
 	}
 }

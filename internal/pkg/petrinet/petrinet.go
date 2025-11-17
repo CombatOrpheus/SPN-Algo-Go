@@ -102,3 +102,137 @@ func filter(nodes []int, condition func(int) bool) []int {
 	}
 	return result
 }
+
+// Prune prunes the Petri net by deleting excess edges and adding missing connections.
+func (pn *PetriNet) Prune() {
+	pn.deleteExcessEdges()
+	pn.addMissingConnections()
+}
+
+func (pn *PetriNet) deleteExcessEdges() {
+	// Delete excess edges from places
+	for i := 0; i < pn.Places; i++ {
+		rowSum := 0
+		for j := 0; j < 2*pn.Transitions; j++ {
+			rowSum += pn.Matrix[i][j]
+		}
+		if rowSum >= 3 {
+			var edgeIndices []int
+			for j := 0; j < 2*pn.Transitions; j++ {
+				if pn.Matrix[i][j] == 1 {
+					edgeIndices = append(edgeIndices, j)
+				}
+			}
+			rand.Shuffle(len(edgeIndices), func(k, l int) {
+				edgeIndices[k], edgeIndices[l] = edgeIndices[l], edgeIndices[k]
+			})
+			for k := 0; k < len(edgeIndices)-2; k++ {
+				// Only remove the edge if it doesn't disconnect the graph
+				pn.Matrix[i][edgeIndices[k]] = 0
+				if !pn.isConnected() {
+					pn.Matrix[i][edgeIndices[k]] = 1
+				}
+			}
+		}
+	}
+
+	// Delete excess edges from transitions
+	for j := 0; j < 2*pn.Transitions; j++ {
+		colSum := 0
+		for i := 0; i < pn.Places; i++ {
+			colSum += pn.Matrix[i][j]
+		}
+		if colSum >= 3 {
+			var edgeIndices []int
+			for i := 0; i < pn.Places; i++ {
+				if pn.Matrix[i][j] == 1 {
+					edgeIndices = append(edgeIndices, i)
+				}
+			}
+			rand.Shuffle(len(edgeIndices), func(k, l int) {
+				edgeIndices[k], edgeIndices[l] = edgeIndices[l], edgeIndices[k]
+			})
+			for k := 0; k < len(edgeIndices)-2; k++ {
+				// Only remove the edge if it doesn't disconnect the graph
+				pn.Matrix[edgeIndices[k]][j] = 0
+				if !pn.isConnected() {
+					pn.Matrix[edgeIndices[k]][j] = 1
+				}
+			}
+		}
+	}
+}
+
+func (pn *PetriNet) isConnected() bool {
+	// Check for isolated places
+	for i := 0; i < pn.Places; i++ {
+		rowSum := 0
+		for j := 0; j < 2*pn.Transitions; j++ {
+			rowSum += pn.Matrix[i][j]
+		}
+		if rowSum == 0 {
+			return false
+		}
+	}
+
+	// Check for isolated transitions
+	for j := 0; j < 2*pn.Transitions; j++ {
+		colSum := 0
+		for i := 0; i < pn.Places; i++ {
+			colSum += pn.Matrix[i][j]
+		}
+		if colSum == 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (pn *PetriNet) addMissingConnections() {
+	// Ensure each transition has at least one connection
+	for j := 0; j < 2*pn.Transitions; j++ {
+		colSum := 0
+		for i := 0; i < pn.Places; i++ {
+			colSum += pn.Matrix[i][j]
+		}
+		if colSum == 0 {
+			randomRow := rand.Intn(pn.Places)
+			pn.Matrix[randomRow][j] = 1
+		}
+	}
+
+	// Ensure each place has at least one incoming and one outgoing edge
+	for i := 0; i < pn.Places; i++ {
+		preSum := 0
+		postSum := 0
+		for j := 0; j < pn.Transitions; j++ {
+			preSum += pn.Matrix[i][j]
+			postSum += pn.Matrix[i][j+pn.Transitions]
+		}
+		if preSum == 0 {
+			randomCol := rand.Intn(pn.Transitions)
+			pn.Matrix[i][randomCol] = 1
+		}
+		if postSum == 0 {
+			randomCol := rand.Intn(pn.Transitions) + pn.Transitions
+			pn.Matrix[i][randomCol] = 1
+		}
+	}
+}
+
+// AddTokensRandomly adds tokens to random places in the Petri net.
+func (pn *PetriNet) AddTokensRandomly() {
+	for i := 0; i < pn.Places; i++ {
+		if rand.Intn(10) <= 2 {
+			pn.Matrix[i][2*pn.Transitions]++
+		}
+	}
+	pn.updateInitialMarking()
+}
+
+func (pn *PetriNet) updateInitialMarking() {
+	for i := 0; i < pn.Places; i++ {
+		pn.InitialMarking[i] = pn.Matrix[i][2*pn.Transitions]
+	}
+}
