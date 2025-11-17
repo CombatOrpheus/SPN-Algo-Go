@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package spn;
+
+option go_package = "spn-benchmark-ds/internal/pkg/spn";
+
+message PetriNet {
+  repeated int32 matrix = 1;
+  int32 places = 2;
+  int32 transitions = 3;
+}
+
+message ReachabilityGraph {
+  repeated Vertex vertices = 1;
+  repeated Edge edges = 2;
+  repeated int32 arc_transitions = 3;
+}
+
+message Vertex {
+  repeated int32 marking = 1;
+}
+
+message Edge {
+  int32 src = 1;
+  int32 dest = 2;
+}
+
+message SPNData {
+  PetriNet petri_net = 1;
+  ReachabilityGraph reachability_graph = 2;
+  repeated double lambda_values = 3;
+  repeated double steady_state_probs = 4;
+  repeated double average_markings = 5;
+  repeated MarkingDensity marking_densities = 6;
+}
+
+message MarkingDensity {
+  repeated double densities = 1;
+}
