@@ -8,6 +8,7 @@ import (
 )
 
 // GeneratePetriNetVariations generates variations of a Petri net by adding or removing tokens.
+// It takes a Petri net and a set of parameters and returns a slice of SPN analysis results.
 func GeneratePetriNetVariations(pn *petrinet.PetriNet, placeUpperBound, marksLowerLimit, marksUpperLimit, numVariations, minFiringRate, maxFiringRate int) []*analysis.SPNAnalysisResult {
 	var variations []*analysis.SPNAnalysisResult
 
@@ -32,7 +33,7 @@ func GeneratePetriNetVariations(pn *petrinet.PetriNet, placeUpperBound, marksLow
 			continue
 		}
 
-		if !rg.IsBounded || len(rg.Vertices) < marksLowerLimit {
+		if !rg.IsBounded || rg.NumVertices < marksLowerLimit {
 			continue
 		}
 
@@ -47,7 +48,7 @@ func GeneratePetriNetVariations(pn *petrinet.PetriNet, placeUpperBound, marksLow
 			continue
 		}
 
-		avgMarkings, markingDensities := analysis.ComputeAverageMarkings(rg.Vertices, steadyStateProbs)
+		avgMarkings, markingDensities := analysis.ComputeAverageMarkings(rg, steadyStateProbs)
 		variations = append(variations, &analysis.SPNAnalysisResult{
 			SteadyStateProbs: steadyStateProbs,
 			AverageMarkings:  avgMarkings,
@@ -58,17 +59,10 @@ func GeneratePetriNetVariations(pn *petrinet.PetriNet, placeUpperBound, marksLow
 	return variations
 }
 
+// deepCopyPetriNet creates a deep copy of a Petri net.
 func deepCopyPetriNet(pn *petrinet.PetriNet) *petrinet.PetriNet {
-	newPN := &petrinet.PetriNet{
-		Places:      pn.Places,
-		Transitions: pn.Transitions,
-		Matrix:      make([][]int, pn.Places),
-		InitialMarking: make([]int, pn.Places),
-	}
-	for i := range newPN.Matrix {
-		newPN.Matrix[i] = make([]int, len(pn.Matrix[i]))
-		copy(newPN.Matrix[i], pn.Matrix[i])
-	}
+	newPN := petrinet.NewPetriNet(pn.Places, pn.Transitions)
+	copy(newPN.Matrix, pn.Matrix)
 	copy(newPN.InitialMarking, pn.InitialMarking)
 	return newPN
 }

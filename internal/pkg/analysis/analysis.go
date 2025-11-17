@@ -9,17 +9,22 @@ import (
 
 // SPNAnalysisResult holds the results of the SPN analysis.
 type SPNAnalysisResult struct {
+	// SteadyStateProbs is a slice of steady-state probabilities for each marking.
 	SteadyStateProbs []float64
-	AverageMarkings  []float64
+	// AverageMarkings is a slice of average markings for each place.
+	AverageMarkings []float64
+	// MarkingDensities is a slice of marking densities for each place.
 	MarkingDensities [][]float64
 }
 
 // ComputeStateEquation computes the state equation for the SPN.
+// It takes a reachability graph and a slice of lambda values and returns a state matrix and a target vector.
 func ComputeStateEquation(rg *generation.ReachabilityGraph, lambdaValues []float64) (*mat.Dense, *mat.VecDense) {
-	numVertices := len(rg.Vertices)
+	numVertices := rg.NumVertices
 	data := make([]float64, (numVertices+1)*numVertices)
 
-	for i, edge := range rg.Edges {
+	for i := 0; i < rg.NumEdges; i++ {
+		edge := rg.Edge(i)
 		srcIdx, destIdx := edge[0], edge[1]
 		transIdx := rg.ArcTransitions[i]
 		rate := lambdaValues[transIdx]
@@ -39,6 +44,7 @@ func ComputeStateEquation(rg *generation.ReachabilityGraph, lambdaValues []float
 }
 
 // SolveForSteadyState solves for steady-state probabilities.
+// It takes a state matrix and a target vector and returns a slice of steady-state probabilities.
 func SolveForSteadyState(stateMatrix *mat.Dense, targetVector *mat.VecDense) ([]float64, error) {
 	_, numVertices := stateMatrix.Dims()
 
@@ -79,21 +85,24 @@ func SolveForSteadyState(stateMatrix *mat.Dense, targetVector *mat.VecDense) ([]
 }
 
 // ComputeAverageMarkings calculates the average number of tokens for each place.
-func ComputeAverageMarkings(vertices [][]int, steadyStateProbs []float64) ([]float64, [][]float64) {
-	if len(vertices) == 0 {
+// It takes a reachability graph and a slice of steady-state probabilities and returns a slice of average markings and a slice of marking densities.
+func ComputeAverageMarkings(rg *generation.ReachabilityGraph, steadyStateProbs []float64) ([]float64, [][]float64) {
+	if rg.NumVertices == 0 {
 		return []float64{}, [][]float64{}
 	}
-	numPlaces := len(vertices[0])
+	numPlaces := rg.VerticesStride
 	avgTokensPerPlace := make([]float64, numPlaces)
 
-	for i, vertex := range vertices {
+	for i := 0; i < rg.NumVertices; i++ {
+		vertex := rg.Vertex(i)
 		for p := 0; p < numPlaces; p++ {
 			avgTokensPerPlace[p] += float64(vertex[p]) * steadyStateProbs[i]
 		}
 	}
 
 	maxTokens := 0
-	for _, vertex := range vertices {
+	for i := 0; i < rg.NumVertices; i++ {
+		vertex := rg.Vertex(i)
 		for _, tokens := range vertex {
 			if tokens > maxTokens {
 				maxTokens = tokens
@@ -109,7 +118,8 @@ func ComputeAverageMarkings(vertices [][]int, steadyStateProbs []float64) ([]flo
 	for placeIdx := 0; placeIdx < numPlaces; placeIdx++ {
 		for tokenVal := 0; tokenVal <= maxTokens; tokenVal++ {
 			sumProbs := 0.0
-			for i, vertex := range vertices {
+			for i := 0; i < rg.NumVertices; i++ {
+				vertex := rg.Vertex(i)
 				if vertex[placeIdx] == tokenVal {
 					sumProbs += steadyStateProbs[i]
 				}

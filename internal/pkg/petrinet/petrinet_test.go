@@ -15,17 +15,14 @@ func TestGenerateRandomPetriNet(t *testing.T) {
 	if pn.Transitions != numTransitions {
 		t.Errorf("Expected %d transitions, but got %d", numTransitions, pn.Transitions)
 	}
-	if len(pn.Matrix) != numPlaces {
+	if len(pn.Matrix) != numPlaces*(2*numTransitions+1) {
 		t.Errorf("Expected matrix to have %d rows, but got %d", numPlaces, len(pn.Matrix))
-	}
-	if len(pn.Matrix[0]) != 2*numTransitions+1 {
-		t.Errorf("Expected matrix to have %d columns, but got %d", 2*numTransitions+1, len(pn.Matrix[0]))
 	}
 
 	// Check if there is an initial marking
 	initialMarkingSum := 0
-	for _, row := range pn.Matrix {
-		initialMarkingSum += row[2*numTransitions]
+	for i := 0; i < numPlaces; i++ {
+		initialMarkingSum += pn.At(i, 2*numTransitions)
 	}
 	if initialMarkingSum == 0 {
 		t.Errorf("Expected at least one initial marking, but got none")
@@ -33,7 +30,7 @@ func TestGenerateRandomPetriNet(t *testing.T) {
 
 	// Check if the initial marking in the struct matches the one in the matrix
 	for i := 0; i < numPlaces; i++ {
-		if pn.InitialMarking[i] != pn.Matrix[i][2*numTransitions] {
+		if pn.InitialMarking[i] != pn.At(i, 2*numTransitions) {
 			t.Errorf("Initial marking in struct does not match matrix at place %d", i)
 		}
 	}
@@ -41,18 +38,16 @@ func TestGenerateRandomPetriNet(t *testing.T) {
 
 func TestPrune(t *testing.T) {
 	// Create a Petri net with excess edges
-	pn := &PetriNet{
-		Places:      2,
-		Transitions: 2,
-		Matrix: [][]int{
-			{1, 1, 1, 1, 0},
-			{1, 1, 1, 1, 0},
-		},
+	pn := NewPetriNet(2, 2)
+	pn.Matrix = []int{
+		1, 1, 1, 1, 0,
+		1, 1, 1, 1, 0,
 	}
+
 	initialEdgeCount := 0
 	for i := 0; i < pn.Places; i++ {
 		for j := 0; j < 2*pn.Transitions; j++ {
-			initialEdgeCount += pn.Matrix[i][j]
+			initialEdgeCount += pn.At(i, j)
 		}
 	}
 
@@ -62,7 +57,7 @@ func TestPrune(t *testing.T) {
 	finalEdgeCount := 0
 	for i := 0; i < pn.Places; i++ {
 		for j := 0; j < 2*pn.Transitions; j++ {
-			finalEdgeCount += pn.Matrix[i][j]
+			finalEdgeCount += pn.At(i, j)
 		}
 	}
 
@@ -71,13 +66,10 @@ func TestPrune(t *testing.T) {
 	}
 
 	// Create a Petri net with missing connections
-	pn = &PetriNet{
-		Places:      2,
-		Transitions: 2,
-		Matrix: [][]int{
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-		},
+	pn = NewPetriNet(2, 2)
+	pn.Matrix = []int{
+		0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0,
 	}
 
 	pn.Prune()
@@ -86,7 +78,7 @@ func TestPrune(t *testing.T) {
 	for j := 0; j < 2*pn.Transitions; j++ {
 		colSum := 0
 		for i := 0; i < pn.Places; i++ {
-			colSum += pn.Matrix[i][j]
+			colSum += pn.At(i, j)
 		}
 		if colSum == 0 {
 			t.Errorf("Pruning failed to add connection to transition %d", j)
@@ -95,15 +87,7 @@ func TestPrune(t *testing.T) {
 }
 
 func TestAddTokensRandomly(t *testing.T) {
-	pn := &PetriNet{
-		Places:      10,
-		Transitions: 5,
-		Matrix:      make([][]int, 10),
-		InitialMarking: make([]int, 10),
-	}
-	for i := range pn.Matrix {
-		pn.Matrix[i] = make([]int, 2*5+1)
-	}
+	pn := NewPetriNet(10, 5)
 
 	pn.AddTokensRandomly()
 

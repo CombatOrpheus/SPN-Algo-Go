@@ -17,6 +17,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// main is the entry point of the application.
+// It parses the command-line arguments, loads the configuration, and runs the generation process.
 func main() {
 	configPath := flag.String("config", "config.yaml", "Path to the configuration file")
 	flag.Parse()
@@ -31,6 +33,8 @@ func main() {
 	}
 }
 
+// run is the main function of the application.
+// It generates the dataset based on the given configuration.
 func run(config *Config) error {
 	file, err := os.Create(config.OutputFile)
 	if err != nil {
@@ -52,7 +56,7 @@ func run(config *Config) error {
 			continue
 		}
 
-		if !rg.IsBounded || len(rg.Vertices) < config.MarksLowerLimit {
+		if !rg.IsBounded || rg.NumVertices < config.MarksLowerLimit {
 			log.Printf("Skipping sample %d: graph is unbounded or has too few markings", i)
 			continue
 		}
@@ -69,7 +73,7 @@ func run(config *Config) error {
 			continue
 		}
 
-		avgMarkings, markingDensities := analysis.ComputeAverageMarkings(rg.Vertices, steadyStateProbs)
+		avgMarkings, markingDensities := analysis.ComputeAverageMarkings(rg, steadyStateProbs)
 
 		analysisResult := &analysis.SPNAnalysisResult{
 			SteadyStateProbs: steadyStateProbs,
@@ -112,6 +116,7 @@ func run(config *Config) error {
 	return nil
 }
 
+// writeSample writes a sample to the output file in the specified format.
 func writeSample(file *os.File, format string, pn *petrinet.PetriNet, rg *generation.ReachabilityGraph, lambdaValues, steadyStateProbs, avgMarkings []float64, markingDensities [][]float64) {
 	switch format {
 	case "jsonl":
@@ -136,11 +141,11 @@ func writeSample(file *os.File, format string, pn *petrinet.PetriNet, rg *genera
 			PetriNet: &spn.PetriNet{
 				Places:      int32(pn.Places),
 				Transitions: int32(pn.Transitions),
-				Matrix:      flattenMatrix(pn.Matrix),
+				Matrix:      toInt32Slice(pn.Matrix),
 			},
 			ReachabilityGraph: &spn.ReachabilityGraph{
-				Vertices:       toProtoVertices(rg.Vertices),
-				Edges:          toProtoEdges(rg.Edges),
+				Vertices:       toProtoVertices(rg),
+				Edges:          toProtoEdges(rg),
 				ArcTransitions: toInt32Slice(rg.ArcTransitions),
 			},
 			LambdaValues:     lambdaValues,
@@ -161,32 +166,27 @@ func writeSample(file *os.File, format string, pn *petrinet.PetriNet, rg *genera
 	fmt.Println("Dataset generation complete.")
 }
 
-func flattenMatrix(matrix [][]int) []int32 {
-	var flat []int32
-	for _, row := range matrix {
-		for _, val := range row {
-			flat = append(flat, int32(val))
-		}
-	}
-	return flat
-}
-
-func toProtoVertices(vertices [][]int) []*spn.Vertex {
+// toProtoVertices converts the vertices of a reachability graph to the protobuf format.
+func toProtoVertices(rg *generation.ReachabilityGraph) []*spn.Vertex {
 	var protoVertices []*spn.Vertex
-	for _, v := range vertices {
+	for i := 0; i < rg.NumVertices; i++ {
+		v := rg.Vertex(i)
 		protoVertices = append(protoVertices, &spn.Vertex{Marking: toInt32Slice(v)})
 	}
 	return protoVertices
 }
 
-func toProtoEdges(edges [][2]int) []*spn.Edge {
+// toProtoEdges converts the edges of a reachability graph to the protobuf format.
+func toProtoEdges(rg *generation.ReachabilityGraph) []*spn.Edge {
 	var protoEdges []*spn.Edge
-	for _, e := range edges {
+	for i := 0; i < rg.NumEdges; i++ {
+		e := rg.Edge(i)
 		protoEdges = append(protoEdges, &spn.Edge{Src: int32(e[0]), Dest: int32(e[1])})
 	}
 	return protoEdges
 }
 
+// toProtoMarkingDensities converts the marking densities to the protobuf format.
 func toProtoMarkingDensities(densities [][]float64) []*spn.MarkingDensity {
 	var protoDensities []*spn.MarkingDensity
 	for _, d := range densities {
@@ -195,6 +195,7 @@ func toProtoMarkingDensities(densities [][]float64) []*spn.MarkingDensity {
 	return protoDensities
 }
 
+// toInt32Slice converts a slice of ints to a slice of int32s.
 func toInt32Slice(slice []int) []int32 {
 	var result []int32
 	for _, v := range slice {

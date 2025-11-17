@@ -16,8 +16,12 @@ func TestAnalysisFunctions(t *testing.T) {
 	// This reachability graph corresponds to a simple P-T net:
 	// P1 -> T1 -> P2, with initial marking (1, 0)
 	rg := &generation.ReachabilityGraph{
-		Vertices:       [][]int{{1, 0}, {0, 1}},
-		Edges:          [][2]int{{0, 1}},
+		Vertices:       []int{1, 0, 0, 1},
+		Edges:          []int{0, 1},
+		VerticesStride: 2,
+		EdgesStride:    2,
+		NumVertices:    2,
+		NumEdges:       1,
 		ArcTransitions: []int{0},
 		IsBounded:      true,
 	}
@@ -74,7 +78,7 @@ func TestAnalysisFunctions(t *testing.T) {
 	}
 
 	// 3. Test ComputeAverageMarkings
-	avgMarkings, markingDensities := ComputeAverageMarkings(rg.Vertices, steadyStateProbs)
+	avgMarkings, markingDensities := ComputeAverageMarkings(rg, steadyStateProbs)
 
 	// Expected average markings: [0.0, 1.0]
 	expectedAvgMarkings := []float64{0.0, 1.0}
