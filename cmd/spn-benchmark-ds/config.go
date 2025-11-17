@@ -17,6 +17,11 @@ type Config struct {
 	PlaceUpperBound int    `yaml:"place_upper_bound"`
 	MarksLowerLimit int    `yaml:"marks_lower_limit"`
 	MarksUpperLimit int    `yaml:"marks_upper_limit"`
+	MinFiringRate   int    `yaml:"min_firing_rate"`
+	MaxFiringRate   int    `yaml:"max_firing_rate"`
+	EnableTransformations bool `yaml:"enable_transformations"`
+	MaxTransformsPerSample int `yaml:"max_transforms_per_sample"`
+	EnableStatisticsReport bool `yaml:"enable_statistics_report"`
 }
 
 // LoadConfig loads the configuration from a YAML file.
