@@ -6,15 +6,12 @@ import (
 )
 
 func TestGeneratePetriNetVariations(t *testing.T) {
-	pn := &petrinet.PetriNet{
-		Places:      2,
-		Transitions: 1,
-		Matrix: [][]int{
-			{1, 0, 1},
-			{0, 1, 0},
-		},
-		InitialMarking: []int{1, 0},
+	pn := petrinet.NewPetriNet(2, 1)
+	pn.Matrix = []int{
+		1, 0, 1,
+		0, 1, 0,
 	}
+	pn.InitialMarking = []int{1, 0}
 	minFiringRate := 5
 	maxFiringRate := 5
 

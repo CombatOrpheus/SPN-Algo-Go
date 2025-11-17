@@ -7,15 +7,12 @@ import (
 
 func TestGenerateReachabilityGraph(t *testing.T) {
 	// Create a simple Petri net for testing
-	pn := &petrinet.PetriNet{
-		Places:      2,
-		Transitions: 1,
-		Matrix: [][]int{
-			{1, 0, 1}, // P1 -> T1
-			{0, 1, 0}, // T1 -> P2
-		},
-		InitialMarking: []int{1, 0},
+	pn := petrinet.NewPetriNet(2, 1)
+	pn.Matrix = []int{
+		1, 0, 1, // P1 -> T1
+		0, 1, 0, // T1 -> P2
 	}
+	pn.InitialMarking = []int{1, 0}
 
 	rg, err := GenerateReachabilityGraph(pn, 10, 100)
 	if err != nil {
@@ -27,17 +24,18 @@ func TestGenerateReachabilityGraph(t *testing.T) {
 	}
 
 	// Expected vertices: [1, 0] and [0, 1]
-	if len(rg.Vertices) != 2 {
-		t.Errorf("Expected 2 vertices, but got %d", len(rg.Vertices))
+	if rg.NumVertices != 2 {
+		t.Errorf("Expected 2 vertices, but got %d", rg.NumVertices)
 	}
 
 	// Expected edge: [1, 0] -> [0, 1]
-	if len(rg.Edges) != 1 {
-		t.Errorf("Expected 1 edge, but got %d", len(rg.Edges))
+	if rg.NumEdges != 1 {
+		t.Errorf("Expected 1 edge, but got %d", rg.NumEdges)
 	}
 
-	if rg.Edges[0][0] != 0 || rg.Edges[0][1] != 1 {
-		t.Errorf("Expected edge from vertex 0 to 1, but got from %d to %d", rg.Edges[0][0], rg.Edges[0][1])
+	edge := rg.Edge(0)
+	if edge[0] != 0 || edge[1] != 1 {
+		t.Errorf("Expected edge from vertex 0 to 1, but got from %d to %d", edge[0], edge[1])
 	}
 
 	if len(rg.ArcTransitions) != 1 {
