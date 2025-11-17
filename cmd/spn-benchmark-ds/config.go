@@ -9,6 +9,8 @@ import (
 
 // Config holds the configuration for the dataset generation.
 type Config struct {
+	// GenerationMode is the generation mode (e.g., "random", "grid").
+	GenerationMode string `yaml:"generation_mode"`
 	// NumPlaces is the number of places in the Petri net.
 	NumPlaces int `yaml:"num_places"`
 	// NumTransitions is the number of transitions in the Petri net.
@@ -35,6 +37,20 @@ type Config struct {
 	MaxTransformsPerSample int `yaml:"max_transforms_per_sample"`
 	// EnableStatisticsReport enables or disables the statistics report.
 	EnableStatisticsReport bool `yaml:"enable_statistics_report"`
+	// PlacesGridBoundaries is the boundaries for the places grid.
+	PlacesGridBoundaries []int `yaml:"places_grid_boundaries"`
+	// MarkingsGridBoundaries is the boundaries for the markings grid.
+	MarkingsGridBoundaries []int `yaml:"markings_grid_boundaries"`
+	// SamplesPerGrid is the number of samples to take from each grid cell.
+	SamplesPerGrid int `yaml:"samples_per_grid"`
+	// LambdaVariationsPerSample is the number of lambda variations to generate for each sample.
+	LambdaVariationsPerSample int `yaml:"lambda_variations_per_sample"`
+	// AccumulationData is a boolean indicating whether to accumulate data in the temporary grid.
+	AccumulationData bool `yaml:"accumulation_data"`
+	// TemporaryGridLocation is the path to the temporary grid location.
+	TemporaryGridLocation string `yaml:"temporary_grid_location"`
+	// OutputGridLocation is the path to the output grid location.
+	OutputGridLocation string `yaml:"output_grid_location"`
 }
 
 // LoadConfig loads the configuration from a YAML file.

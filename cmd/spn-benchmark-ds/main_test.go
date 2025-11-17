@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -10,7 +9,7 @@ import (
 
 func TestRun(t *testing.T) {
 	// Create a temporary config file
-	configFile, err := ioutil.TempFile("", "config.yaml")
+	configFile, err := os.CreateTemp("", "config.yaml")
 	if err != nil {
 		t.Fatalf("Failed to create temp config file: %v", err)
 	}
@@ -45,7 +44,7 @@ enable_statistics_report: true
 	}
 
 	// Check that the output file was created and has content
-	content, err := ioutil.ReadFile("test_output.jsonl")
+	content, err := os.ReadFile("test_output.jsonl")
 	if err != nil {
 		t.Fatalf("Failed to read output file: %v", err)
 	}
@@ -54,7 +53,7 @@ enable_statistics_report: true
 	}
 
 	// Check that the report file was created and has content
-	reportContent, err := ioutil.ReadFile("test_output.jsonl.html")
+	reportContent, err := os.ReadFile("test_output.jsonl.html")
 	if err != nil {
 		t.Fatalf("Failed to read report file: %v", err)
 	}
@@ -72,7 +71,7 @@ enable_statistics_report: true
 
 func TestRandomFiringRates(t *testing.T) {
 	// Create a temporary config file
-	configFile, err := ioutil.TempFile("", "config.yaml")
+	configFile, err := os.CreateTemp("", "config.yaml")
 	if err != nil {
 		t.Fatalf("Failed to create temp config file: %v", err)
 	}
@@ -107,7 +106,7 @@ enable_statistics_report: false
 	}
 
 	// Check that the output file was created and has content
-	content, err := ioutil.ReadFile("test_output.jsonl")
+	content, err := os.ReadFile("test_output.jsonl")
 	if err != nil {
 		t.Fatalf("Failed to read output file: %v", err)
 	}
@@ -126,4 +125,66 @@ enable_statistics_report: false
 
 	// Clean up
 	os.Remove("test_output.jsonl")
+}
+
+func TestRunGridGeneration(t *testing.T) {
+	// Create a temporary config file
+	configFile, err := os.CreateTemp("", "config.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create temp config file: %v", err)
+	}
+	defer os.Remove(configFile.Name())
+
+	configContent := `
+generation_mode: "grid"
+num_places: 1
+num_transitions: 1
+num_samples: 1
+output_file: "test_output.jsonl"
+format: "jsonl"
+place_upper_bound: 10
+marks_lower_limit: 1
+marks_upper_limit: 100
+min_firing_rate: 5
+max_firing_rate: 5
+enable_transformations: false
+enable_statistics_report: false
+places_grid_boundaries: [5]
+markings_grid_boundaries: [50]
+samples_per_grid: 1
+lambda_variations_per_sample: 1
+temporary_grid_location: "test_grid"
+output_grid_location: "test_grid_output.jsonl"
+`
+	if _, err := configFile.WriteString(configContent); err != nil {
+		t.Fatalf("Failed to write to temp config file: %v", err)
+	}
+	configFile.Close()
+
+	config, err := LoadConfig(configFile.Name())
+	if err != nil {
+		t.Fatalf("Error loading config: %v", err)
+	}
+
+	if err := os.MkdirAll(config.TemporaryGridLocation, os.ModePerm); err != nil {
+		t.Fatalf("Failed to create temp grid location: %v", err)
+	}
+
+	if err := run(config); err != nil {
+		t.Fatalf("Error running generation: %v", err)
+	}
+
+	// Check that the output file was created and has content
+	content, err := os.ReadFile("test_grid_output.jsonl")
+	if err != nil {
+		t.Fatalf("Failed to read output file: %v", err)
+	}
+	if len(content) == 0 {
+		t.Errorf("Output file is empty")
+	}
+
+	// Clean up
+	os.Remove("test_output.jsonl")
+	os.RemoveAll("test_grid")
+	os.Remove("test_grid_output.jsonl")
 }
