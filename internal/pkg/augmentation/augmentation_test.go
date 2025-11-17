@@ -2,56 +2,51 @@ package augmentation
 
 import (
 	"spn-benchmark-ds/internal/pkg/petrinet"
+	"spn-benchmark-ds/internal/pkg/generation"
 	"testing"
 )
 
-func TestGeneratePetriNetVariations(t *testing.T) {
+func TestGenerateLambdaVariations(t *testing.T) {
+	// This reachability graph corresponds to a simple P-T net:
+	// P1 -> T1 -> P2, with initial marking (1, 0)
 	pn := petrinet.NewPetriNet(2, 1)
-	pn.Matrix = []int{
-		1, 0, 1,
-		0, 1, 0,
+	rg := &generation.ReachabilityGraph{
+		Vertices:       []int{1, 0, 0, 1},
+		Edges:          []int{0, 1},
+		VerticesStride: 2,
+		EdgesStride:    2,
+		NumVertices:    2,
+		NumEdges:       1,
+		ArcTransitions: []int{0},
+		IsBounded:      true,
 	}
-	pn.InitialMarking = []int{1, 0}
-	minFiringRate := 5
-	maxFiringRate := 5
+	numVariations := 5
+	minFiringRate := 1
+	maxFiringRate := 10
 
-	variations := GeneratePetriNetVariations(pn, 10, 2, 100, 5, minFiringRate, maxFiringRate)
+	variations, lambdaValuesList := GenerateLambdaVariations(pn, rg, numVariations, minFiringRate, maxFiringRate)
 
-	if len(variations) == 0 {
-		// It's possible that no variations are generated if the reachability graph generation fails.
-		// Run it again to be sure.
-		variations = GeneratePetriNetVariations(pn, 10, 2, 100, 5, minFiringRate, maxFiringRate)
-		if len(variations) == 0 {
-			t.Errorf("GeneratePetriNetVariations did not generate any variations")
-		}
-	}
-
-	if len(variations) != 5 {
-		// It's possible that fewer variations are generated if the reachability graph generation fails.
-		// We'll just check that some variations were generated.
-		if len(variations) == 0 {
-			t.Errorf("GeneratePetriNetVariations did not generate any variations")
-		}
+	if len(variations) != numVariations {
+		t.Errorf("GenerateLambdaVariations returned %d variations, expected %d", len(variations), numVariations)
 	}
 
-	// Check that the variations are different from the original
-	for _, variation := range variations {
-		isDifferent := false
-		// This is not a great way to check for differences, but it's better than nothing.
-		// A better way would be to compare the analysis results.
-		if len(variation.AverageMarkings) != len(pn.InitialMarking) {
-			isDifferent = true
-			break
-		}
-		for i := range variation.AverageMarkings {
-			// This is a very loose comparison, but it's better than nothing.
-			if int(variation.AverageMarkings[i]) != pn.InitialMarking[i] {
-				isDifferent = true
-				break
-			}
-		}
-		if !isDifferent {
-			t.Errorf("Generated variation is not different from the original")
-		}
+	if len(lambdaValuesList) != numVariations {
+		t.Errorf("GenerateLambdaVariations returned %d lambdaValuesList, expected %d", len(lambdaValuesList), numVariations)
+	}
+}
+
+func TestGeneratePetriNetVariations(t *testing.T) {
+	pn := petrinet.NewPetriNet(5, 3)
+	numVariations := 5
+	placeUpperBound := 10
+	marksLowerLimit := 1
+	marksUpperLimit := 100
+	minFiringRate := 1
+	maxFiringRate := 10
+
+	variations := GeneratePetriNetVariations(pn, placeUpperBound, marksLowerLimit, marksUpperLimit, numVariations, minFiringRate, maxFiringRate)
+
+	if len(variations) != numVariations {
+		t.Errorf("GeneratePetriNetVariations returned %d variations, expected %d", len(variations), numVariations)
 	}
 }

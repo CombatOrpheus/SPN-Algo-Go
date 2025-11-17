@@ -1,3 +1,4 @@
+generation_mode: "random"
 num_places: 5
 num_transitions: 3
 num_samples: 100
@@ -11,3 +12,10 @@ max_firing_rate: 10
 enable_transformations: true
 max_transforms_per_sample: 5
 enable_statistics_report: true
+places_grid_boundaries: [5, 7, 9, 11, 13]
+markings_grid_boundaries: [4, 8, 12, 16, 20, 24, 28, 32, 36, 40]
+samples_per_grid: 10
+lambda_variations_per_sample: 5
+accumulation_data: false
+temporary_grid_location: "temp_grid"
+output_grid_location: "grid_data"

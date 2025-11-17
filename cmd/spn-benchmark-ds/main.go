@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"spn-benchmark-ds/internal/pkg/analysis"
 	"spn-benchmark-ds/internal/pkg/augmentation"
 	"spn-benchmark-ds/internal/pkg/generation"
+	"spn-benchmark-ds/internal/pkg/grid"
 	"spn-benchmark-ds/internal/pkg/petrinet"
 	"spn-benchmark-ds/internal/pkg/report"
 	"spn-benchmark-ds/internal/pkg/spn"
@@ -36,6 +39,14 @@ func main() {
 // run is the main function of the application.
 // It generates the dataset based on the given configuration.
 func run(config *Config) error {
+	if config.GenerationMode == "grid" {
+		return runGridGeneration(config)
+	}
+	return runRandomGeneration(config)
+}
+
+// runRandomGeneration generates the dataset based on the given configuration.
+func runRandomGeneration(config *Config) error {
 	file, err := os.Create(config.OutputFile)
 	if err != nil {
 		return fmt.Errorf("error creating output file: %w", err)
@@ -116,15 +127,75 @@ func run(config *Config) error {
 	return nil
 }
 
+// runGridGeneration generates the dataset based on the given configuration.
+func runGridGeneration(config *Config) error {
+	// Generate raw data
+	rawFilePath := filepath.Join(config.TemporaryGridLocation, "raw_data.jsonl")
+	if err := generateRawData(config, rawFilePath); err != nil {
+		return fmt.Errorf("error generating raw data: %w", err)
+	}
+
+	// Partition data into grid
+	if err := grid.PartitionDataIntoGrid(config.TemporaryGridLocation, config.AccumulationData, rawFilePath, config.PlacesGridBoundaries, config.MarkingsGridBoundaries); err != nil {
+		return fmt.Errorf("error partitioning data into grid: %w", err)
+	}
+
+	// Sample and transform data
+	results, err := grid.SampleAndTransformData(config.TemporaryGridLocation, config.SamplesPerGrid, config.LambdaVariationsPerSample, config.MinFiringRate, config.MaxFiringRate)
+	if err != nil {
+		return fmt.Errorf("error sampling and transforming data: %w", err)
+	}
+
+	// Package dataset
+	file, err := os.Create(config.OutputGridLocation)
+	if err != nil {
+		return fmt.Errorf("error creating output file: %w", err)
+	}
+	defer file.Close()
+
+	for _, result := range results {
+		writeSample(file, config.Format, result.PetriNet, result.ReachabilityGraph, result.LambdaValues, result.Analysis.SteadyStateProbs, result.Analysis.AverageMarkings, result.Analysis.MarkingDensities)
+	}
+
+	return nil
+}
+
+func generateRawData(config *Config, outputPath string) error {
+	file, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("error creating output file: %w", err)
+	}
+	defer file.Close()
+
+	for i := 0; i < config.NumSamples; i++ {
+		pn := petrinet.GenerateRandomPetriNet(config.NumPlaces, config.NumTransitions)
+		log.Printf("Generated Petri net with %d places and %d transitions", pn.Places, pn.Transitions)
+		pn.Prune()
+		log.Printf("Pruned Petri net")
+		pn.AddTokensRandomly()
+		log.Printf("Added tokens randomly")
+		rg, err := generation.GenerateReachabilityGraph(pn, config.PlaceUpperBound, config.MarksUpperLimit)
+		if err != nil {
+			log.Printf("Skipping sample %d: error generating reachability graph: %v", i, err)
+			continue
+		}
+
+		if !rg.IsBounded || rg.NumVertices < config.MarksLowerLimit {
+			log.Printf("Skipping sample %d: graph is unbounded or has too few markings", i)
+			continue
+		}
+		writeSample(file, config.Format, pn, rg, nil, nil, nil, nil)
+	}
+	return nil
+}
+
 // writeSample writes a sample to the output file in the specified format.
-func writeSample(file *os.File, format string, pn *petrinet.PetriNet, rg *generation.ReachabilityGraph, lambdaValues, steadyStateProbs, avgMarkings []float64, markingDensities [][]float64) {
+func writeSample(writer io.Writer, format string, pn *petrinet.PetriNet, rg *generation.ReachabilityGraph, lambdaValues, steadyStateProbs, avgMarkings []float64, markingDensities [][]float64) {
 	switch format {
 	case "jsonl":
 		result := map[string]interface{}{
-			"petri_net":          pn.Matrix,
-			"vertices":           rg.Vertices,
-			"edges":              rg.Edges,
-			"arc_transitions":    rg.ArcTransitions,
+			"petri_net":          pn,
+			"reachability_graph": rg,
 			"lambda_values":      lambdaValues,
 			"steady_state_probs": steadyStateProbs,
 			"average_markings":   avgMarkings,
@@ -135,7 +206,7 @@ func writeSample(file *os.File, format string, pn *petrinet.PetriNet, rg *genera
 			log.Printf("Skipping sample: error marshalling to JSON: %v", err)
 			return
 		}
-		fmt.Fprintln(file, string(data))
+		fmt.Fprintln(writer, string(data))
 	case "protobuf":
 		spnData := &spn.SPNData{
 			PetriNet: &spn.PetriNet{
@@ -158,7 +229,9 @@ func writeSample(file *os.File, format string, pn *petrinet.PetriNet, rg *genera
 			log.Printf("Skipping sample: error marshalling to protobuf: %v", err)
 			return
 		}
-		file.Write(data)
+		if _, err := writer.Write(data); err != nil {
+			log.Printf("Skipping sample: error writing to file: %v", err)
+		}
 	default:
 		log.Fatalf("Unsupported output format: %s", format)
 	}

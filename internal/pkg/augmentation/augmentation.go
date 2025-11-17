@@ -66,3 +66,32 @@ func deepCopyPetriNet(pn *petrinet.PetriNet) *petrinet.PetriNet {
 	copy(newPN.InitialMarking, pn.InitialMarking)
 	return newPN
 }
+
+// GenerateLambdaVariations generates variations of a Petri net by changing the lambda values.
+func GenerateLambdaVariations(pn *petrinet.PetriNet, rg *generation.ReachabilityGraph, numVariations, minFiringRate, maxFiringRate int) ([]*analysis.SPNAnalysisResult, [][]float64) {
+	var variations []*analysis.SPNAnalysisResult
+	var lambdaValuesList [][]float64
+
+	for i := 0; i < numVariations; i++ {
+		lambdaValues := make([]float64, pn.Transitions)
+		for i := range lambdaValues {
+			lambdaValues[i] = float64(minFiringRate + rand.Intn(maxFiringRate-minFiringRate+1))
+		}
+
+		stateMatrix, targetVector := analysis.ComputeStateEquation(rg, lambdaValues)
+		steadyStateProbs, err := analysis.SolveForSteadyState(stateMatrix, targetVector)
+		if err != nil {
+			continue
+		}
+
+		avgMarkings, markingDensities := analysis.ComputeAverageMarkings(rg, steadyStateProbs)
+		variations = append(variations, &analysis.SPNAnalysisResult{
+			SteadyStateProbs: steadyStateProbs,
+			AverageMarkings:  avgMarkings,
+			MarkingDensities: markingDensities,
+		})
+		lambdaValuesList = append(lambdaValuesList, lambdaValues)
+	}
+
+	return variations, lambdaValuesList
+}
