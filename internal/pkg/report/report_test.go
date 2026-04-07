@@ -48,10 +48,10 @@ func TestCalculateStats(t *testing.T) {
 
 func TestGenerateReport(t *testing.T) {
 	stats := &Stats{
-		NumSamples:         10,
-		AvgPlaces:          5.5,
-		AvgTransitions:     3.2,
-		AvgMarkings:        8.1,
+		NumSamples:          10,
+		AvgPlaces:           5.5,
+		AvgTransitions:      3.2,
+		AvgMarkings:         8.1,
 		AvgSteadyStateProbs: 1.0,
 	}
 

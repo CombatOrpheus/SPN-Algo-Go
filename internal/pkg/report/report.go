@@ -8,17 +8,17 @@ import (
 
 // SampleResult holds the analysis result for a single sample.
 type SampleResult struct {
-	NumPlaces        int
-	NumTransitions   int
-	Analysis         *analysis.SPNAnalysisResult
+	NumPlaces      int
+	NumTransitions int
+	Analysis       *analysis.SPNAnalysisResult
 }
 
 // Stats holds the statistics for the generated dataset.
 type Stats struct {
-	NumSamples         int
-	AvgPlaces          float64
-	AvgTransitions     float64
-	AvgMarkings        float64
+	NumSamples          int
+	AvgPlaces           float64
+	AvgTransitions      float64
+	AvgMarkings         float64
 	AvgSteadyStateProbs float64
 }
 

@@ -2,9 +2,9 @@ package augmentation
 
 import (
 	"math/rand"
-	"spn-benchmark-ds/internal/pkg/petrinet"
 	"spn-benchmark-ds/internal/pkg/analysis"
 	"spn-benchmark-ds/internal/pkg/generation"
+	"spn-benchmark-ds/internal/pkg/petrinet"
 )
 
 // GeneratePetriNetVariations generates variations of a Petri net by adding or removing tokens.
