@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"spn-benchmark-ds/internal/pkg/petrinet"
-	"spn-benchmark-ds/internal/pkg/utils"
-	"spn-benchmark-ds/internal/pkg/generation"
 	"spn-benchmark-ds/internal/pkg/analysis"
 	"spn-benchmark-ds/internal/pkg/augmentation"
+	"spn-benchmark-ds/internal/pkg/generation"
+	"spn-benchmark-ds/internal/pkg/petrinet"
+	"spn-benchmark-ds/internal/pkg/utils"
 )
 
 type TransformedSample struct {
@@ -20,7 +20,7 @@ type TransformedSample struct {
 }
 
 type GridSample struct {
-	PetriNet          petrinet.PetriNet `json:"petri_net"`
+	PetriNet          petrinet.PetriNet            `json:"petri_net"`
 	ReachabilityGraph generation.ReachabilityGraph `json:"reachability_graph"`
 }
 
@@ -69,9 +69,9 @@ func SampleAndTransformData(gridDir string, samplesPerGrid int, lambdaVariations
 	}
 
 	var gridConfig GridConfig
-    if err := json.Unmarshal(gridConfigData, &gridConfig); err != nil {
-        return nil, fmt.Errorf("failed to unmarshal grid config: %w", err)
-    }
+	if err := json.Unmarshal(gridConfigData, &gridConfig); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal grid config: %w", err)
+	}
 
 	var allData []*GridSample
 	numPlaceBins := len(gridConfig.RowP) + 1
@@ -157,7 +157,7 @@ func getGridIndex(value int, gridBoundaries []int) int {
 
 // GridConfig holds the configuration for the grid.
 type GridConfig struct {
-	RowP      []int `json:"row_p"`
-	ColM      []int `json:"col_m"`
+	RowP      []int   `json:"row_p"`
+	ColM      []int   `json:"col_m"`
 	JSONCount [][]int `json:"json_count"`
 }

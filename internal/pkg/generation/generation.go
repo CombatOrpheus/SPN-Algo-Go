@@ -2,8 +2,9 @@ package generation
 
 import (
 	"container/list"
-	"fmt"
 	"spn-benchmark-ds/internal/pkg/petrinet"
+	"strconv"
+	"strings"
 )
 
 // ReachabilityGraph represents the reachability graph of a Petri Net.
@@ -93,7 +94,7 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 
 	graph := &ReachabilityGraph{
 		Vertices:         make([]int, 1*len(initialMarking)),
-		Edges:            make([]int, 10),
+		Edges:            make([]int, 20),
 		VerticesStride:   len(initialMarking),
 		EdgesStride:      2,
 		IsBounded:        true,
@@ -174,6 +175,17 @@ func isMarkingOutOfBounds(marking []int, placeUpperLimit int) bool {
 }
 
 // markingToString converts a marking to a string.
+// Optimized to use strings.Builder and strconv.Itoa instead of fmt.Sprintf
+// to avoid reflection and significantly improve performance during state hashing.
 func markingToString(marking []int) string {
-	return fmt.Sprintf("%v", marking)
+	var builder strings.Builder
+	builder.WriteByte('[')
+	for i, v := range marking {
+		if i > 0 {
+			builder.WriteByte(' ')
+		}
+		builder.WriteString(strconv.Itoa(v))
+	}
+	builder.WriteByte(']')
+	return builder.String()
 }

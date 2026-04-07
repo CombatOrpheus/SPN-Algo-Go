@@ -1,8 +1,8 @@
 package augmentation
 
 import (
-	"spn-benchmark-ds/internal/pkg/petrinet"
 	"spn-benchmark-ds/internal/pkg/generation"
+	"spn-benchmark-ds/internal/pkg/petrinet"
 	"testing"
 )
 
