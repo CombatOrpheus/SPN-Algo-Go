@@ -115,17 +115,17 @@ func ComputeAverageMarkings(rg *generation.ReachabilityGraph, steadyStateProbs [
 		markingDensityMatrix[i] = make([]float64, maxTokens+1)
 	}
 
-	for placeIdx := 0; placeIdx < numPlaces; placeIdx++ {
-		for tokenVal := 0; tokenVal <= maxTokens; tokenVal++ {
-			sumProbs := 0.0
-			for i := 0; i < rg.NumVertices; i++ {
-				vertex := rg.Vertex(i)
-				if vertex[placeIdx] == tokenVal {
-					sumProbs += steadyStateProbs[i]
-				}
-			}
-			markingDensityMatrix[placeIdx][tokenVal] = sumProbs
+	// ⚡ Bolt: Optimized marking density calculation.
+	// Reduced complexity from O(Places * MaxTokens * Vertices) to O(Vertices * Places)
+	// by directly accumulating probabilities instead of searching for matching tokens.
+	for i := 0; i < rg.NumVertices; i++ {
+		vertex := rg.Vertex(i)
+		prob := steadyStateProbs[i]
+		for placeIdx := 0; placeIdx < numPlaces; placeIdx++ {
+			tokenVal := vertex[placeIdx]
+			markingDensityMatrix[placeIdx][tokenVal] += prob
 		}
 	}
+
 	return avgTokensPerPlace, markingDensityMatrix
 }
