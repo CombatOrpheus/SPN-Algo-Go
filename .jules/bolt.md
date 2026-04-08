@@ -1,3 +1,6 @@
 ## 2024-04-07 - Optimize slice serialization in hot path
 **Learning:** In the SPN generation loop, converting integer slice markings to strings using `fmt.Sprintf` is a major bottleneck due to Go's reflection overhead. The reachability graph generation function calls this conversion for every explored state, compounding the penalty.
 **Action:** Replace `fmt.Sprintf` with a fast-path implementation using `strings.Builder` and `strconv.Itoa` for hot-path serialization loops. This reduces allocations and avoids reflection entirely, resulting in ~6x faster execution time for the stringification step.
+## 2024-03-24 - O(n^2) Histogram Loops in Analysis
+**Learning:** The SPN reachability graph analysis contains histogram building logic (calculating marking densities) that was written as a nested loop searching through all state probabilities for each histogram bin. This resulted in O(Places * MaxTokens * Vertices) complexity, causing significant slowdowns as the reachability graph grew larger.
+**Action:** When identifying histogram or frequency distribution calculations across large state spaces, look for opportunities to invert the loop to iterate through the states exactly once, directly accumulating values into the appropriate bins (reducing to O(Vertices * Places) complexity).
