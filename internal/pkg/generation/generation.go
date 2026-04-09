@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"spn-benchmark-ds/internal/pkg/petrinet"
 	"strconv"
-	"strings"
 )
 
 // ReachabilityGraph represents the reachability graph of a Petri Net.
@@ -175,17 +174,24 @@ func isMarkingOutOfBounds(marking []int, placeUpperLimit int) bool {
 }
 
 // markingToString converts a marking to a string.
-// Optimized to use strings.Builder and strconv.Itoa instead of fmt.Sprintf
-// to avoid reflection and significantly improve performance during state hashing.
+// ⚡ Bolt: Optimized to use direct byte slice preallocation and strconv.AppendInt
+// to avoid intermediate string allocations and significantly improve performance
+// during state hashing.
 func markingToString(marking []int) string {
-	var builder strings.Builder
-	builder.WriteByte('[')
+	l := len(marking)
+	if l == 0 {
+		return "[]"
+	}
+
+	// Preallocate with capacity estimation (approx 3 bytes per number)
+	b := make([]byte, 0, l*3+1)
+	b = append(b, '[')
 	for i, v := range marking {
 		if i > 0 {
-			builder.WriteByte(' ')
+			b = append(b, ' ')
 		}
-		builder.WriteString(strconv.Itoa(v))
+		b = strconv.AppendInt(b, int64(v), 10)
 	}
-	builder.WriteByte(']')
-	return builder.String()
+	b = append(b, ']')
+	return string(b)
 }
