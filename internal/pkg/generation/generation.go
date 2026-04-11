@@ -1,7 +1,6 @@
 package generation
 
 import (
-	"container/list"
 	"spn-benchmark-ds/internal/pkg/petrinet"
 	"strconv"
 )
@@ -88,8 +87,12 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 	visitedMarkings := make(map[string]int)
 	visitedMarkings[markingToString(initialMarking)] = 0
 
-	queue := list.New()
-	queue.PushBack(0)
+	// ⚡ Bolt: Replaced container/list with a slice-based queue.
+	// This eliminates heap allocations for queue elements and
+	// interface{} type assertion overhead, significantly speeding up BFS.
+	queue := make([]int, 0, 1024)
+	queue = append(queue, 0)
+	head := 0
 
 	graph := &ReachabilityGraph{
 		Vertices:         make([]int, 1*len(initialMarking)),
@@ -102,10 +105,10 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 	}
 	graph.AddVertex(initialMarking)
 
-	for queue.Len() > 0 {
-		element := queue.Front()
-		queue.Remove(element)
-		currentMarkingIndex := element.Value.(int)
+	for head < len(queue) {
+
+		currentMarkingIndex := queue[head]
+		head++
 		currentMarking := graph.Vertex(currentMarkingIndex)
 
 		if graph.NumVertices >= maxMarkingsToExplore {
@@ -125,7 +128,7 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 			if _, ok := visitedMarkings[markingStr]; !ok {
 				visitedMarkings[markingStr] = graph.NumVertices
 				graph.AddVertex(newMarking)
-				queue.PushBack(graph.NumVertices - 1)
+				queue = append(queue, graph.NumVertices-1)
 			}
 			graph.AddEdge([2]int{currentMarkingIndex, visitedMarkings[markingStr]})
 			graph.ArcTransitions = append(graph.ArcTransitions, enabledTransitions[i])
