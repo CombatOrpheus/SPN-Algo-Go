@@ -68,17 +68,17 @@ func (rg *ReachabilityGraph) AddEdge(edge [2]int) {
 // It takes a Petri net and a set of parameters and returns a reachability graph.
 func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMarkingsToExplore int) (*ReachabilityGraph, error) {
 	numTransitions := pn.Transitions
-	preMatrix := make([][]int, pn.Places)
-	postMatrix := make([][]int, pn.Places)
-	changeMatrix := make([][]int, pn.Places)
-	for i := 0; i < pn.Places; i++ {
-		preMatrix[i] = make([]int, numTransitions)
-		postMatrix[i] = make([]int, numTransitions)
-		changeMatrix[i] = make([]int, numTransitions)
-		for j := 0; j < numTransitions; j++ {
-			preMatrix[i][j] = pn.At(i, j)
-			postMatrix[i][j] = pn.At(i, j+numTransitions)
-			changeMatrix[i][j] = postMatrix[i][j] - preMatrix[i][j]
+	preMatrix := make([][]int, numTransitions)
+	postMatrix := make([][]int, numTransitions)
+	changeMatrix := make([][]int, numTransitions)
+	for t := 0; t < numTransitions; t++ {
+		preMatrix[t] = make([]int, pn.Places)
+		postMatrix[t] = make([]int, pn.Places)
+		changeMatrix[t] = make([]int, pn.Places)
+		for p := 0; p < pn.Places; p++ {
+			preMatrix[t][p] = pn.At(p, t)
+			postMatrix[t][p] = pn.At(p, t+numTransitions)
+			changeMatrix[t][p] = postMatrix[t][p] - preMatrix[t][p]
 		}
 	}
 
@@ -141,23 +141,29 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 }
 
 // getEnabledTransitions returns the enabled transitions and the new markings.
+// ⚡ Bolt: Optimized by pre-allocating return slices to eliminate allocations in loop.
+// Also changed preMatrix/changeMatrix orientation to [transitions][places]
+// to improve cache locality when evaluating each transition's requirements.
 func getEnabledTransitions(preMatrix, changeMatrix [][]int, currentMarking []int) ([]int, [][]int) {
-	numTransitions := len(preMatrix[0])
-	var enabledTransitions []int
-	var newMarkings [][]int
+	numTransitions := len(preMatrix)
+	enabledTransitions := make([]int, 0, numTransitions)
+	newMarkings := make([][]int, 0, numTransitions)
+	numPlaces := len(currentMarking)
 
 	for t := 0; t < numTransitions; t++ {
 		isEnabled := true
-		for p := 0; p < len(preMatrix); p++ {
-			if currentMarking[p] < preMatrix[p][t] {
+		preT := preMatrix[t]
+		for p := 0; p < numPlaces; p++ {
+			if currentMarking[p] < preT[p] {
 				isEnabled = false
 				break
 			}
 		}
 		if isEnabled {
-			newMarking := make([]int, len(currentMarking))
-			for p := 0; p < len(currentMarking); p++ {
-				newMarking[p] = currentMarking[p] + changeMatrix[p][t]
+			newMarking := make([]int, numPlaces)
+			changeT := changeMatrix[t]
+			for p := 0; p < numPlaces; p++ {
+				newMarking[p] = currentMarking[p] + changeT[p]
 			}
 			enabledTransitions = append(enabledTransitions, t)
 			newMarkings = append(newMarkings, newMarking)
