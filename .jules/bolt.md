@@ -13,3 +13,7 @@
 ## 2026-04-11 - Matrix Orientation and Allocation Hot Path Optimization
 **Learning:** During reachability graph generation, the `getEnabledTransitions` function accesses `preMatrix` and `changeMatrix` sequentially per transition across all places. When laid out as `[places][transitions]`, this results in poor cache locality (strided reads). Furthermore, dynamically allocating slices (`append`) in a tight loop across thousands of state visits results in excessive heap allocations and overhead.
 **Action:** Pivot pre-calculated requirement matrices (`preMatrix`, `changeMatrix`, etc) from `[places][transitions]` to `[transitions][places]`. This ensures sequential contiguous memory access per transition (`changeMatrix[transition]`). Additionally, tightly bound slice capacities during initialization `make([]int, 0, capacity)` within hot-path mapping loops to completely eliminate slice growth re-allocations.
+
+## 2026-04-12 - Gonum View Methods (Slice) vs Copying
+**Learning:** In hot paths (like calculating steady-state probabilities across many states), manually creating slices and using `At()` or loop assignments to form matrices/vectors is surprisingly slow in Gonum due to memory allocations and interface overhead.
+**Action:** Always prefer Gonum's view methods like `Slice` (for `Dense` matrices) and `SliceVec` (for `VecDense` vectors) over allocating new structures and manually transferring elements, as they zero-cost operations that simply reference existing array subsets.
