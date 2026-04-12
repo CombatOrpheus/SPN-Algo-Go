@@ -48,20 +48,14 @@ func ComputeStateEquation(rg *generation.ReachabilityGraph, lambdaValues []float
 func SolveForSteadyState(stateMatrix *mat.Dense, targetVector *mat.VecDense) ([]float64, error) {
 	_, numVertices := stateMatrix.Dims()
 
+	// ⚡ Bolt: Optimized matrix/vector preparation for the solver.
 	// We need a square matrix for the solver. Remove one redundant equation.
-	data := make([]float64, numVertices*numVertices)
-	for r := 1; r < numVertices+1; r++ {
-		for c := 0; c < numVertices; c++ {
-			data[(r-1)*numVertices+c] = stateMatrix.At(r, c)
-		}
-	}
-	A := mat.NewDense(numVertices, numVertices, data)
-
-	bData := make([]float64, numVertices)
-	for i := 0; i < numVertices; i++ {
-		bData[i] = targetVector.AtVec(i + 1)
-	}
-	b := mat.NewVecDense(numVertices, bData)
+	// Instead of allocating new arrays and copying element-by-element with At(),
+	// we use Slice/SliceVec to create lightweight views over the existing data.
+	// This completely eliminates heap allocations and At() overhead in this hot path,
+	// improving execution time significantly.
+	A := stateMatrix.Slice(1, numVertices+1, 0, numVertices)
+	b := targetVector.SliceVec(1, numVertices+1)
 
 	var x mat.VecDense
 	if err := x.SolveVec(A, b); err != nil {
