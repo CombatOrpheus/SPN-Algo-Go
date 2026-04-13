@@ -87,17 +87,18 @@ func ComputeAverageMarkings(rg *generation.ReachabilityGraph, steadyStateProbs [
 	numPlaces := rg.VerticesStride
 	avgTokensPerPlace := make([]float64, numPlaces)
 
-	for i := 0; i < rg.NumVertices; i++ {
-		vertex := rg.Vertex(i)
-		for p := 0; p < numPlaces; p++ {
-			avgTokensPerPlace[p] += float64(vertex[p]) * steadyStateProbs[i]
-		}
-	}
-
 	maxTokens := 0
+
+	// ⚡ Bolt: Combined loop passes and removed dynamic slice allocation overhead.
+	// We directly access the underlying 1D Vertices array instead of calling rg.Vertex(i),
+	// which creates a new slice header on each invocation. This reduces loop passes from 2 to 1
+	// for the average/max calculations.
 	for i := 0; i < rg.NumVertices; i++ {
-		vertex := rg.Vertex(i)
-		for _, tokens := range vertex {
+		vertexStart := i * rg.VerticesStride
+		prob := steadyStateProbs[i]
+		for p := 0; p < numPlaces; p++ {
+			tokens := rg.Vertices[vertexStart+p]
+			avgTokensPerPlace[p] += float64(tokens) * prob
 			if tokens > maxTokens {
 				maxTokens = tokens
 			}
@@ -112,11 +113,12 @@ func ComputeAverageMarkings(rg *generation.ReachabilityGraph, steadyStateProbs [
 	// ⚡ Bolt: Optimized marking density calculation.
 	// Reduced complexity from O(Places * MaxTokens * Vertices) to O(Vertices * Places)
 	// by directly accumulating probabilities instead of searching for matching tokens.
+	// Also uses direct array access to avoid Vertex() overhead.
 	for i := 0; i < rg.NumVertices; i++ {
-		vertex := rg.Vertex(i)
+		vertexStart := i * rg.VerticesStride
 		prob := steadyStateProbs[i]
 		for placeIdx := 0; placeIdx < numPlaces; placeIdx++ {
-			tokenVal := vertex[placeIdx]
+			tokenVal := rg.Vertices[vertexStart+placeIdx]
 			markingDensityMatrix[placeIdx][tokenVal] += prob
 		}
 	}
