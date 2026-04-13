@@ -17,3 +17,7 @@
 ## 2026-04-12 - Gonum View Methods (Slice) vs Copying
 **Learning:** In hot paths (like calculating steady-state probabilities across many states), manually creating slices and using `At()` or loop assignments to form matrices/vectors is surprisingly slow in Gonum due to memory allocations and interface overhead.
 **Action:** Always prefer Gonum's view methods like `Slice` (for `Dense` matrices) and `SliceVec` (for `VecDense` vectors) over allocating new structures and manually transferring elements, as they zero-cost operations that simply reference existing array subsets.
+
+## 2026-04-13 - Avoid dynamic slicing via getter methods in hot loops
+**Learning:** Calling getter methods like `rg.Vertex(i)` inside tight loops over reachability graphs incurs non-trivial overhead because Go dynamically creates a new slice header for every call (e.g., `rg.Vertices[start:end]`). When processing graphs with thousands of vertices, this adds up quickly. Furthermore, traversing the graph state multiple times sequentially is an anti-pattern.
+**Action:** When performing calculations across the entire ReachabilityGraph (like calculating average markings or densities), use direct array access on the flattened 1D slice (`rg.Vertices[i * rg.VerticesStride + p]`) instead of using getter methods. Additionally, combine multiple sequential passes over the vertices into a single pass when possible (e.g., calculating both max tokens and average tokens in the same loop).
