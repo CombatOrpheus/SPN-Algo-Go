@@ -3,6 +3,7 @@ package generation
 import (
 	"spn-benchmark-ds/internal/pkg/petrinet"
 	"strconv"
+	"unsafe"
 )
 
 // ReachabilityGraph represents the reachability graph of a Petri Net.
@@ -85,7 +86,7 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 	initialMarking := pn.InitialMarking
 
 	visitedMarkings := make(map[string]int)
-	visitedMarkings[markingToString(initialMarking)] = 0
+	visitedMarkings[hashMarking(initialMarking)] = 0
 
 	// ⚡ Bolt: Replaced container/list with a slice-based queue.
 	// This eliminates heap allocations for queue elements and
@@ -124,13 +125,13 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 				break
 			}
 
-			markingStr := markingToString(newMarking)
-			if _, ok := visitedMarkings[markingStr]; !ok {
-				visitedMarkings[markingStr] = graph.NumVertices
+			markingHash := hashMarking(newMarking)
+			if _, ok := visitedMarkings[markingHash]; !ok {
+				visitedMarkings[markingHash] = graph.NumVertices
 				graph.AddVertex(newMarking)
 				queue = append(queue, graph.NumVertices-1)
 			}
-			graph.AddEdge([2]int{currentMarkingIndex, visitedMarkings[markingStr]})
+			graph.AddEdge([2]int{currentMarkingIndex, visitedMarkings[markingHash]})
 			graph.ArcTransitions = append(graph.ArcTransitions, enabledTransitions[i])
 		}
 		if !graph.IsBounded {
@@ -180,6 +181,26 @@ func isMarkingOutOfBounds(marking []int, placeUpperLimit int) bool {
 		}
 	}
 	return false
+}
+
+// hashMarking creates a fast hash key from a marking.
+// ⚡ Bolt: Optimized to bypass base-10 conversion and stringification entirely.
+// Using unsafe fast-copying directly from the raw underlying memory into a byte array
+// provides a massive performance boost when used for cache keys.
+func hashMarking(marking []int) string {
+	l := len(marking)
+	if l == 0 {
+		return ""
+	}
+
+	byteLen := l * int(unsafe.Sizeof(int(0)))
+	b := make([]byte, byteLen)
+
+	// Fast copy memory
+	src := unsafe.Slice((*byte)(unsafe.Pointer(&marking[0])), byteLen)
+	copy(b, src)
+
+	return unsafe.String(unsafe.SliceData(b), byteLen)
 }
 
 // markingToString converts a marking to a string.
