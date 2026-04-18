@@ -94,6 +94,7 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 	queue := make([]int, 0, 1024)
 	queue = append(queue, 0)
 	head := 0
+	scratchMarking := make([]int, pn.Places)
 
 	graph := &ReachabilityGraph{
 		Vertices:         make([]int, 1*len(initialMarking)),
@@ -117,70 +118,51 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 			break
 		}
 
-		enabledTransitions, newMarkings := getEnabledTransitions(preMatrix, changeMatrix, currentMarking)
-
-		for i, newMarking := range newMarkings {
-			if isMarkingOutOfBounds(newMarking, placeUpperLimit) {
-				graph.IsBounded = false
-				break
+		// ⚡ Bolt: Inlined getEnabledTransitions to eliminate allocations.
+		// Instead of returning new slices, we evaluate transitions directly
+		// and use a scratch slice to hash/check bounds before copying.
+		for t := 0; t < numTransitions; t++ {
+			isEnabled := true
+			preT := preMatrix[t]
+			for p := 0; p < pn.Places; p++ {
+				if currentMarking[p] < preT[p] {
+					isEnabled = false
+					break
+				}
 			}
 
-			markingHash := hashMarking(newMarking)
-			if _, ok := visitedMarkings[markingHash]; !ok {
-				visitedMarkings[markingHash] = graph.NumVertices
-				graph.AddVertex(newMarking)
-				queue = append(queue, graph.NumVertices-1)
+			if isEnabled {
+				changeT := changeMatrix[t]
+				isOutOfBounds := false
+				for p := 0; p < pn.Places; p++ {
+					tokens := currentMarking[p] + changeT[p]
+					if tokens > placeUpperLimit {
+						isOutOfBounds = true
+						break
+					}
+					scratchMarking[p] = tokens
+				}
+
+				if isOutOfBounds {
+					graph.IsBounded = false
+					break
+				}
+
+				markingHash := hashMarking(scratchMarking)
+				if _, ok := visitedMarkings[markingHash]; !ok {
+					visitedMarkings[markingHash] = graph.NumVertices
+					graph.AddVertex(scratchMarking)
+					queue = append(queue, graph.NumVertices-1)
+				}
+				graph.AddEdge([2]int{currentMarkingIndex, visitedMarkings[markingHash]})
+				graph.ArcTransitions = append(graph.ArcTransitions, t)
 			}
-			graph.AddEdge([2]int{currentMarkingIndex, visitedMarkings[markingHash]})
-			graph.ArcTransitions = append(graph.ArcTransitions, enabledTransitions[i])
 		}
 		if !graph.IsBounded {
 			break
 		}
 	}
 	return graph, nil
-}
-
-// getEnabledTransitions returns the enabled transitions and the new markings.
-// ⚡ Bolt: Optimized by pre-allocating return slices to eliminate allocations in loop.
-// Also changed preMatrix/changeMatrix orientation to [transitions][places]
-// to improve cache locality when evaluating each transition's requirements.
-func getEnabledTransitions(preMatrix, changeMatrix [][]int, currentMarking []int) ([]int, [][]int) {
-	numTransitions := len(preMatrix)
-	enabledTransitions := make([]int, 0, numTransitions)
-	newMarkings := make([][]int, 0, numTransitions)
-	numPlaces := len(currentMarking)
-
-	for t := 0; t < numTransitions; t++ {
-		isEnabled := true
-		preT := preMatrix[t]
-		for p := 0; p < numPlaces; p++ {
-			if currentMarking[p] < preT[p] {
-				isEnabled = false
-				break
-			}
-		}
-		if isEnabled {
-			newMarking := make([]int, numPlaces)
-			changeT := changeMatrix[t]
-			for p := 0; p < numPlaces; p++ {
-				newMarking[p] = currentMarking[p] + changeT[p]
-			}
-			enabledTransitions = append(enabledTransitions, t)
-			newMarkings = append(newMarkings, newMarking)
-		}
-	}
-	return enabledTransitions, newMarkings
-}
-
-// isMarkingOutOfBounds returns true if the marking is out of bounds.
-func isMarkingOutOfBounds(marking []int, placeUpperLimit int) bool {
-	for _, tokens := range marking {
-		if tokens > placeUpperLimit {
-			return true
-		}
-	}
-	return false
 }
 
 // hashMarking creates a fast hash key from a marking.

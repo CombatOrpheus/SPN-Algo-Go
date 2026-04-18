@@ -17,7 +17,7 @@ func generateTestPetriNet(places, transitions int) *petrinet.PetriNet {
 		prePlace := t % places
 		postPlace := (t + 1) % places
 
-		pn.Set(prePlace, t, 1) // Pre-arc
+		pn.Set(prePlace, t, 1)              // Pre-arc
 		pn.Set(postPlace, t+transitions, 1) // Post-arc
 	}
 
