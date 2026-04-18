@@ -24,3 +24,6 @@
 ## 2026-04-17 - Optimize map string hash generation without sacrificing readability
 **Learning:** Overriding a standard `toString` function (e.g., `markingToString`) with an unsafe memory copy to improve hashing performance breaks the semantic contract of generating human-readable outputs and makes outputs platform/architecture-dependent.
 **Action:** When a high-performance hash is needed for a map key (like in a BFS `visitedMarkings` cache), implement it in a separate dedicated function (e.g., `hashMarking`) that uses `unsafe.Slice` to fast-copy raw bytes. Leave standard `toString` functions alone so that logs and serialization routines continue to function correctly and predictably.
+## 2024-05-24 - Inline Transitions and Scratch Slices to Eliminate Allocations
+**Learning:** Returning dynamically sized `[]int` arrays from functions called repeatedly within hot loops (like in a BFS `getEnabledTransitions` function traversing thousands of states) generates massive heap allocations in Go, drastically lowering performance and significantly increasing garbage collection time.
+**Action:** Inline evaluating boolean paths in the BFS loop directly to bypass slice returns entirely, and construct the single next-state directly into a reusable, pre-allocated `scratchMarking := make([]int, size)` slice, hashing it immediately before copying memory over.
