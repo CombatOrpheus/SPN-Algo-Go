@@ -148,13 +148,17 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 					break
 				}
 
-				markingHash := hashMarking(scratchMarking)
-				if _, ok := visitedMarkings[markingHash]; !ok {
+				markingHashView := hashMarkingView(scratchMarking)
+				if val, ok := visitedMarkings[markingHashView]; !ok {
+					// Allocate permanent string only when inserting a new marking
+					markingHash := hashMarking(scratchMarking)
 					visitedMarkings[markingHash] = graph.NumVertices
+					graph.AddEdge([2]int{currentMarkingIndex, graph.NumVertices})
 					graph.AddVertex(scratchMarking)
 					queue = append(queue, graph.NumVertices-1)
+				} else {
+					graph.AddEdge([2]int{currentMarkingIndex, val})
 				}
-				graph.AddEdge([2]int{currentMarkingIndex, visitedMarkings[markingHash]})
 				graph.ArcTransitions = append(graph.ArcTransitions, t)
 			}
 		}
@@ -163,6 +167,19 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 		}
 	}
 	return graph, nil
+}
+
+// hashMarkingView creates a zero-allocation string view over a slice of ints.
+// ⚡ Bolt: It uses unsafe.String directly over the underlying memory, preventing
+// allocations during map lookups. Since it does not copy the data, the resulting
+// string must only be used as a map lookup key and never stored or modified.
+func hashMarkingView(marking []int) string {
+	l := len(marking)
+	if l == 0 {
+		return ""
+	}
+	byteLen := l * int(unsafe.Sizeof(int(0)))
+	return unsafe.String((*byte)(unsafe.Pointer(&marking[0])), byteLen)
 }
 
 // hashMarking creates a fast hash key from a marking.
