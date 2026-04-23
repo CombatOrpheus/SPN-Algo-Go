@@ -27,3 +27,6 @@
 ## 2024-05-24 - Inline Transitions and Scratch Slices to Eliminate Allocations
 **Learning:** Returning dynamically sized `[]int` arrays from functions called repeatedly within hot loops (like in a BFS `getEnabledTransitions` function traversing thousands of states) generates massive heap allocations in Go, drastically lowering performance and significantly increasing garbage collection time.
 **Action:** Inline evaluating boolean paths in the BFS loop directly to bypass slice returns entirely, and construct the single next-state directly into a reusable, pre-allocated `scratchMarking := make([]int, size)` slice, hashing it immediately before copying memory over.
+## 2026-04-23 - Zero-allocation string views for map lookups
+**Learning:** During BFS state exploration in Go, repeatedly using a `[]byte` slice to look up a map with string keys causes massive GC pressure because `string(bytes)` forces a heap allocation to guarantee immutability, even for lookups.
+**Action:** When performing high-frequency map lookups using dynamically generated data (like `[]int`), use `unsafe.String` over the underlying memory to create a zero-allocation string view (`hashMarkingView`). Use this view strictly for map lookups. If an entry must be added, allocate a permanent string copy (`hashMarking`) to prevent the map from holding onto volatile memory.
