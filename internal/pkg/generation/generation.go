@@ -69,17 +69,35 @@ func (rg *ReachabilityGraph) AddEdge(edge [2]int) {
 // It takes a Petri net and a set of parameters and returns a reachability graph.
 func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMarkingsToExplore int) (*ReachabilityGraph, error) {
 	numTransitions := pn.Transitions
-	preMatrix := make([][]int, numTransitions)
-	postMatrix := make([][]int, numTransitions)
-	changeMatrix := make([][]int, numTransitions)
+
+	// ⚡ Bolt: Used sparse representation for preMatrix and changeMatrix.
+	// In typical Petri nets, most places don't participate in most transitions.
+	// By only storing and iterating over non-zero requirements and changes,
+	// we drastically reduce memory accesses and loop iterations in the hot BFS loop.
+	type SparseReq struct {
+		Place  int
+		Tokens int
+	}
+	type SparseChange struct {
+		Place int
+		Delta int
+	}
+
+	preReqs := make([][]SparseReq, numTransitions)
+	changes := make([][]SparseChange, numTransitions)
+
 	for t := 0; t < numTransitions; t++ {
-		preMatrix[t] = make([]int, pn.Places)
-		postMatrix[t] = make([]int, pn.Places)
-		changeMatrix[t] = make([]int, pn.Places)
 		for p := 0; p < pn.Places; p++ {
-			preMatrix[t][p] = pn.At(p, t)
-			postMatrix[t][p] = pn.At(p, t+numTransitions)
-			changeMatrix[t][p] = postMatrix[t][p] - preMatrix[t][p]
+			pre := pn.At(p, t)
+			post := pn.At(p, t+numTransitions)
+			change := post - pre
+
+			if pre > 0 {
+				preReqs[t] = append(preReqs[t], SparseReq{Place: p, Tokens: pre})
+			}
+			if change != 0 {
+				changes[t] = append(changes[t], SparseChange{Place: p, Delta: change})
+			}
 		}
 	}
 
@@ -123,24 +141,23 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 		// and use a scratch slice to hash/check bounds before copying.
 		for t := 0; t < numTransitions; t++ {
 			isEnabled := true
-			preT := preMatrix[t]
-			for p := 0; p < pn.Places; p++ {
-				if currentMarking[p] < preT[p] {
+			for _, req := range preReqs[t] {
+				if currentMarking[req.Place] < req.Tokens {
 					isEnabled = false
 					break
 				}
 			}
 
 			if isEnabled {
-				changeT := changeMatrix[t]
 				isOutOfBounds := false
-				for p := 0; p < pn.Places; p++ {
-					tokens := currentMarking[p] + changeT[p]
+				copy(scratchMarking, currentMarking)
+				for _, chg := range changes[t] {
+					tokens := scratchMarking[chg.Place] + chg.Delta
 					if tokens > placeUpperLimit {
 						isOutOfBounds = true
 						break
 					}
-					scratchMarking[p] = tokens
+					scratchMarking[chg.Place] = tokens
 				}
 
 				if isOutOfBounds {
