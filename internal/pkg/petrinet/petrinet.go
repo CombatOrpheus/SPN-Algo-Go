@@ -65,14 +65,30 @@ func GenerateRandomPetriNet(numPlaces, numTransitions int) *PetriNet {
 		pn.Set(firstPlace-1, firstTransition-numPlaces-1+numTransitions, 1)
 	}
 
-	subGraph := []int{firstPlace, firstTransition}
+	// ⚡ Bolt: Pre-allocate subGraph to avoid dynamic expansion allocations
+	subGraph := make([]int, 0, numPlaces+numTransitions)
+	subGraph = append(subGraph, firstPlace, firstTransition)
+
 	rand.Shuffle(len(remainingNodes), func(i, j int) {
 		remainingNodes[i], remainingNodes[j] = remainingNodes[j], remainingNodes[i]
 	})
 
+	// ⚡ Bolt: Avoid allocating closures in hot loops by hoisting the check logic
+	// directly into an inline separation instead of generic functional `filter`
+	subPlaces := make([]int, 0, numPlaces)
+	subTransitions := make([]int, 0, numTransitions)
+
 	for _, node := range remainingNodes {
-		subPlaces := filter(subGraph, func(n int) bool { return n <= numPlaces })
-		subTransitions := filter(subGraph, func(n int) bool { return n > numPlaces })
+		subPlaces = subPlaces[:0]
+		subTransitions = subTransitions[:0]
+
+		for _, sn := range subGraph {
+			if sn <= numPlaces {
+				subPlaces = append(subPlaces, sn)
+			} else {
+				subTransitions = append(subTransitions, sn)
+			}
+		}
 
 		var place, transition int
 		if node <= numPlaces {
@@ -112,8 +128,10 @@ func removeNode(nodes []int, node int) []int {
 }
 
 // filter filters a slice of nodes based on a condition.
+// ⚡ Bolt: By pre-allocating the resulting slice with capacity `len(nodes)`,
+// we avoid iterative allocations and slice growth overhead.
 func filter(nodes []int, condition func(int) bool) []int {
-	var result []int
+	result := make([]int, 0, len(nodes))
 	for _, n := range nodes {
 		if condition(n) {
 			result = append(result, n)
