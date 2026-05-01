@@ -37,8 +37,9 @@ func ComputeStateEquation(rg *generation.ReachabilityGraph, lambdaValues []float
 	}
 
 	stateMatrix := mat.NewDense(numVertices+1, numVertices, data)
-	targetVector := mat.NewVecDense(numVertices+1, nil)
-	targetVector.SetVec(numVertices, 1.0)
+	targetData := make([]float64, numVertices+1)
+	targetData[numVertices] = 1.0
+	targetVector := mat.NewVecDense(numVertices+1, targetData)
 
 	return stateMatrix, targetVector
 }
