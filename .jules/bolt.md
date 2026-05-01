@@ -42,3 +42,6 @@
 ## 2026-04-27 - Fast Inline Slice Splitting Replaces Functional Filter
 **Learning:** Using generic functional paradigms like `filter(slice, func)` to partition slices in Go requires allocating closure structs on the heap (especially when capturing variables), forces multiple loops (one for each split condition), and dynamically expands destination arrays, all of which degrade tight-loop performance (e.g. `GenerateRandomPetriNet`).
 **Action:** When splitting a slice into two or more buckets in a hot path, inline the loop directly and construct the condition. Importantly, pre-allocate the destination slices (`make([]int, 0, cap)`) upfront to handle the maximum possible split size. In the inner loop, use `slice = slice[:0]` to reset the length without discarding the capacity, completely eliminating allocation overhead while running thousands of loops.
+## 2026-05-01 - Avoid mat.NewVecDense logic overhead
+**Learning:** In hot paths, creating `mat.NewVecDense(n, nil)` and then using `.SetVec(i, val)` internally dynamically allocates memory and handles unneeded bounds-checking logic. Passing pre-initialized raw `[]float64` to `mat.NewVecDense` completely eliminates allocation and interface overhead.
+**Action:** Always pre-allocate and initialize raw `[]float64` slices and pass them to `mat.NewVecDense(size, rawArray)`.
