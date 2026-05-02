@@ -45,3 +45,6 @@
 ## 2026-05-01 - Avoid mat.NewVecDense logic overhead
 **Learning:** In hot paths, creating `mat.NewVecDense(n, nil)` and then using `.SetVec(i, val)` internally dynamically allocates memory and handles unneeded bounds-checking logic. Passing pre-initialized raw `[]float64` to `mat.NewVecDense` completely eliminates allocation and interface overhead.
 **Action:** Always pre-allocate and initialize raw `[]float64` slices and pass them to `mat.NewVecDense(size, rawArray)`.
+## 2026-05-02 - Fast Bulk Copying with unsafe.Slice
+**Learning:** Element-by-element copying or bitshifting from an `[]int` to a `[]byte` slice is significantly slower than using Go's highly optimized `copy` function, even when dealing with small slices in very hot paths (like encoding state markings in a BFS loop).
+**Action:** When converting primitive slices like `[]int` to `[]byte` for fast hashing or encoding, use `unsafe.Slice` to create a byte-level view of the source memory and then perform a bulk `copy` to the destination slice. This leverages fast memory-level operations and is exponentially faster than manual bit-shifting loops.
