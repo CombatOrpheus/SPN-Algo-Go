@@ -108,7 +108,8 @@ func GenerateReachabilityGraph(pn *petrinet.PetriNet, placeUpperLimit int, maxMa
 	queue = append(queue, 0)
 	head := 0
 	scratchMarking := make([]int, pn.Places)
-	byteScratch := make([]byte, pn.Places*8) // pre-allocate for safe hashing
+	intSize := int(unsafe.Sizeof(int(0)))
+	byteScratch := make([]byte, pn.Places*intSize) // pre-allocate for safe hashing
 
 	graph := &ReachabilityGraph{
 		Vertices:         make([]int, 0, initialCapVertices*len(initialMarking)),
@@ -213,43 +214,24 @@ func hashMarking(marking []int) string {
 		return ""
 	}
 
-	// We can convert []int to a string safely without unsafe by iterating and
-	// putting the bytes of each int into a byte slice, then stringifying.
-	// But actually, Go 1.20+ string(byteSlice) makes a copy.
-	// Since unsafe was allowed, let's keep it but actually just return string(b)
-	// which doesn't use unsafe.SliceData, just pure string() copy.
-
-	// Fast memory copy is safe-ish, but the original used unsafe.String
-	// Here is a completely safe version:
-	byteLen := l * 8 // assuming 64-bit ints
+	byteLen := l * int(unsafe.Sizeof(int(0)))
 	b := make([]byte, byteLen)
-
-	for i, v := range marking {
-		b[i*8] = byte(v)
-		b[i*8+1] = byte(v >> 8)
-		b[i*8+2] = byte(v >> 16)
-		b[i*8+3] = byte(v >> 24)
-		b[i*8+4] = byte(v >> 32)
-		b[i*8+5] = byte(v >> 40)
-		b[i*8+6] = byte(v >> 48)
-		b[i*8+7] = byte(v >> 56)
-	}
+	src := unsafe.Slice((*byte)(unsafe.Pointer(&marking[0])), byteLen)
+	copy(b, src)
 
 	return string(b)
 }
 
 // encodeMarkingSafe encodes an int slice into a raw byte slice for fast map lookups.
+// ⚡ Bolt: Replaced element-by-element bitshifting with unsafe.Slice and copy
+// for memory-level fast bulk copying.
 func encodeMarkingSafe(marking []int, b []byte) {
-	for i, v := range marking {
-		b[i*8] = byte(v)
-		b[i*8+1] = byte(v >> 8)
-		b[i*8+2] = byte(v >> 16)
-		b[i*8+3] = byte(v >> 24)
-		b[i*8+4] = byte(v >> 32)
-		b[i*8+5] = byte(v >> 40)
-		b[i*8+6] = byte(v >> 48)
-		b[i*8+7] = byte(v >> 56)
+	if len(marking) == 0 {
+		return
 	}
+	byteLen := len(marking) * int(unsafe.Sizeof(int(0)))
+	src := unsafe.Slice((*byte)(unsafe.Pointer(&marking[0])), byteLen)
+	copy(b, src)
 }
 
 // markingToString converts a marking to a string.
