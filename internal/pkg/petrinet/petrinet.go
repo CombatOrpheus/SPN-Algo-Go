@@ -151,13 +151,14 @@ func (pn *PetriNet) deleteExcessEdges() {
 	// Delete excess edges from places
 	for i := 0; i < pn.Places; i++ {
 		rowSum := 0
+		offset := i * pn.stride
 		for j := 0; j < 2*pn.Transitions; j++ {
-			rowSum += pn.At(i, j)
+			rowSum += pn.Matrix[offset+j]
 		}
 		if rowSum >= 3 {
 			var edgeIndices []int
 			for j := 0; j < 2*pn.Transitions; j++ {
-				if pn.At(i, j) == 1 {
+				if pn.Matrix[offset+j] == 1 {
 					edgeIndices = append(edgeIndices, j)
 				}
 			}
@@ -166,9 +167,9 @@ func (pn *PetriNet) deleteExcessEdges() {
 			})
 			for k := 0; k < len(edgeIndices)-2; k++ {
 				// Only remove the edge if it doesn't disconnect the graph
-				pn.Set(i, edgeIndices[k], 0)
+				pn.Matrix[offset+edgeIndices[k]] = 0
 				if !pn.isConnected() {
-					pn.Set(i, edgeIndices[k], 1)
+					pn.Matrix[offset+edgeIndices[k]] = 1
 				}
 			}
 		}
@@ -178,12 +179,12 @@ func (pn *PetriNet) deleteExcessEdges() {
 	for j := 0; j < 2*pn.Transitions; j++ {
 		colSum := 0
 		for i := 0; i < pn.Places; i++ {
-			colSum += pn.At(i, j)
+			colSum += pn.Matrix[i*pn.stride+j]
 		}
 		if colSum >= 3 {
 			var edgeIndices []int
 			for i := 0; i < pn.Places; i++ {
-				if pn.At(i, j) == 1 {
+				if pn.Matrix[i*pn.stride+j] == 1 {
 					edgeIndices = append(edgeIndices, i)
 				}
 			}
@@ -192,9 +193,9 @@ func (pn *PetriNet) deleteExcessEdges() {
 			})
 			for k := 0; k < len(edgeIndices)-2; k++ {
 				// Only remove the edge if it doesn't disconnect the graph
-				pn.Set(edgeIndices[k], j, 0)
+				pn.Matrix[edgeIndices[k]*pn.stride+j] = 0
 				if !pn.isConnected() {
-					pn.Set(edgeIndices[k], j, 1)
+					pn.Matrix[edgeIndices[k]*pn.stride+j] = 1
 				}
 			}
 		}
@@ -205,22 +206,29 @@ func (pn *PetriNet) deleteExcessEdges() {
 func (pn *PetriNet) isConnected() bool {
 	// Check for isolated places
 	for i := 0; i < pn.Places; i++ {
-		rowSum := 0
+		connected := false
+		offset := i * pn.stride
 		for j := 0; j < 2*pn.Transitions; j++ {
-			rowSum += pn.At(i, j)
+			if pn.Matrix[offset+j] > 0 {
+				connected = true
+				break
+			}
 		}
-		if rowSum == 0 {
+		if !connected {
 			return false
 		}
 	}
 
 	// Check for isolated transitions
 	for j := 0; j < 2*pn.Transitions; j++ {
-		colSum := 0
+		connected := false
 		for i := 0; i < pn.Places; i++ {
-			colSum += pn.At(i, j)
+			if pn.Matrix[i*pn.stride+j] > 0 {
+				connected = true
+				break
+			}
 		}
-		if colSum == 0 {
+		if !connected {
 			return false
 		}
 	}
@@ -232,31 +240,42 @@ func (pn *PetriNet) isConnected() bool {
 func (pn *PetriNet) addMissingConnections() {
 	// Ensure each transition has at least one connection
 	for j := 0; j < 2*pn.Transitions; j++ {
-		colSum := 0
+		connected := false
 		for i := 0; i < pn.Places; i++ {
-			colSum += pn.At(i, j)
+			if pn.Matrix[i*pn.stride+j] > 0 {
+				connected = true
+				break
+			}
 		}
-		if colSum == 0 {
+		if !connected {
 			randomRow := rand.Intn(pn.Places)
-			pn.Set(randomRow, j, 1)
+			pn.Matrix[randomRow*pn.stride+j] = 1
 		}
 	}
 
 	// Ensure each place has at least one incoming and one outgoing edge
 	for i := 0; i < pn.Places; i++ {
-		preSum := 0
-		postSum := 0
+		preConnected := false
+		postConnected := false
+		offset := i * pn.stride
 		for j := 0; j < pn.Transitions; j++ {
-			preSum += pn.At(i, j)
-			postSum += pn.At(i, j+pn.Transitions)
+			if pn.Matrix[offset+j] > 0 {
+				preConnected = true
+			}
+			if pn.Matrix[offset+j+pn.Transitions] > 0 {
+				postConnected = true
+			}
+			if preConnected && postConnected {
+				break
+			}
 		}
-		if preSum == 0 {
+		if !preConnected {
 			randomCol := rand.Intn(pn.Transitions)
-			pn.Set(i, randomCol, 1)
+			pn.Matrix[offset+randomCol] = 1
 		}
-		if postSum == 0 {
+		if !postConnected {
 			randomCol := rand.Intn(pn.Transitions) + pn.Transitions
-			pn.Set(i, randomCol, 1)
+			pn.Matrix[offset+randomCol] = 1
 		}
 	}
 }
