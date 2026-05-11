@@ -24,8 +24,9 @@ func ComputeStateEquation(rg *generation.ReachabilityGraph, lambdaValues []float
 	data := make([]float64, (numVertices+1)*numVertices)
 
 	for i := 0; i < rg.NumEdges; i++ {
-		edge := rg.Edge(i)
-		srcIdx, destIdx := edge[0], edge[1]
+		// ⚡ Bolt: Use direct slice access for rg.Edges to avoid overhead of rg.Edge(i) returning a new slice.
+		srcIdx := rg.Edges[i*rg.EdgesStride]
+		destIdx := rg.Edges[i*rg.EdgesStride+1]
 		transIdx := rg.ArcTransitions[i]
 		rate := lambdaValues[transIdx]
 		data[srcIdx*numVertices+srcIdx] -= rate
